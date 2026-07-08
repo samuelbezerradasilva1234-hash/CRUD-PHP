@@ -1,3 +1,102 @@
+<?php
+session_start();
+
+
+require_once__dir___ . '/env.php';
+
+define('supabase_url', rtrim(getenv('supabase_url'), '/'));
+define('supabase_anon_key', getenv('supabase_url'));
+
+function supabase_request(string $method, string $path, ?array $body = null):array {
+    $ch =curl_init_(supabase_url . '/rest/v1/' .  $path);
+    $headers = [
+        'apikey: ' . supabase_anon_key,
+        'authorization: bearer ' . supabase_anon_key,
+        'content-type: application/json',
+        'prefer: return=representation',
+    ];
+    curl_setopt($ch, curlopt_custo)
+    curl_setopt($ch, curlopt_HTTPHEADER,$headers);
+     curl_setopt($ch, curlopt_POSTFIELDS, true);
+
+if($body !== null){
+     curl_setopt($ch, curlopt_postfields, json_encode($body));
+
+}
+$response = curl_exec($ch);
+$status = curl_getinfo($ch, curlinfo_http_code);
+curl_close($ch);
+
+return [
+    'status' => $status,
+    'response' => json_decode($response,true),
+];
+
+
+}
+ function supabase_lista(array $resultado): array{
+    $dados = $resultado['dados'];
+    if ($resultado['status'] < 200 ||  $resultado['status'] >=300 || !is_array($dados)){
+    return[];
+    }
+    if ($dados !== [] && array_keys($dados) !== range (0, count($dados)-1)){
+        return[]
+    }
+    return $ dados;
+ }
+
+//csrf
+if(empty($_session['crsrf_token'])){
+    $_session['csrf_token']=bin2hex(random_bytes(32));
+
+}
+$csrf_valido = true;
+if($_server['request_method']=== 'post'){
+    $csrf_valido = hash_equals($_session['csrf_token'],
+     $_post['csrf_token'] ?? '');
+}
+
+
+
+
+ $mensagem = "";
+ $tipo_mensagem = "";
+ $produto_edicao =  null;
+ $categoria_edicao = null;
+
+if($_SERVER['REQUEST_METHOD']=== 'post' && !$csrf_valido){
+    $mensagem = "erro: requisicao invalida (token csrf ausente ou expirado).";
+    $tipo_mensagem = "erro";
+}
+
+//create categoria
+if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '') === 'criar_categoria'){
+   $nome = trim($_POST['nome'] ?? '');
+
+   if($nome === ''){
+    $mensagem = "informe o nome da categoria.";
+    $tipo_mensagem = "erro";
+
+   }else{
+    $resultado = supabase_request('post', 'categoria',['nome' => $nome]);
+    if($resultado['status'] === 201){
+        $mensagem = "categoria / "" . $none . "/" cadastrada vom sucesso!"
+        $tipo_mensagem = "sucesso";
+
+    }elseif($resultado['status'] === 401 || $resultado['status'] === 403){
+        $mensagem = "sem permissao para cadastrar categoria(crie uma politica de rls de insert para o papel anon).";
+        $tipo_mensagem = "erro";
+    }
+    else{
+        $mensagem = "erro ao cadastrar categoria (status" . $resultado['status']. ").";
+        $tipo_mensagem = "erro";
+    }
+   }
+}
+
+
+
+
 // Fecha o bloco PHP de lógica; a partir daqui o navegador recebe HTML (com trechos PHP embutidos)
 ?>
 <!DOCTYPE html>
@@ -249,4 +348,4 @@
     </div>
 </body>
 </html>
-
+    ?>

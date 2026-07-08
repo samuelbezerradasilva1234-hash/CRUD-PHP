@@ -2,98 +2,98 @@
 session_start();
 
 
-require_once__dir___ . '/env.php';
+require_once __dir__ . '/env.php';
 
 define('supabase_url', rtrim(getenv('supabase_url'), '/'));
 define('supabase_anon_key', getenv('supabase_url'));
 
-function supabase_request(string $method, string $path, ?array $body = null):array {
-    $ch =curl_init_(supabase_url . '/rest/v1/' .  $path);
+function supabase_request(string $method, string $path, ?array $body = null): array
+{
+    $ch = curl_init(supabase_url . '/rest/v1/' .  $path);
     $headers = [
         'apikey: ' . supabase_anon_key,
         'authorization: bearer ' . supabase_anon_key,
         'content-type: application/json',
         'prefer: return=representation',
     ];
-    curl_setopt($ch, curlopt_custo)
-    curl_setopt($ch, curlopt_HTTPHEADER,$headers);
-     curl_setopt($ch, curlopt_POSTFIELDS, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, true);
 
-if($body !== null){
-     curl_setopt($ch, curlopt_postfields, json_encode($body));
+    if ($body !== null) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+    }
+    $response = curl_exec($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
+    return [
+        'status' => $status,
+        'response' => json_decode($response, true),
+    ];
 }
-$response = curl_exec($ch);
-$status = curl_getinfo($ch, curlinfo_http_code);
-curl_close($ch);
-
-return [
-    'status' => $status,
-    'response' => json_decode($response,true),
-];
-
-
-}
- function supabase_lista(array $resultado): array{
+function supabase_lista(array $resultado): array
+{
     $dados = $resultado['dados'];
-    if ($resultado['status'] < 200 ||  $resultado['status'] >=300 || !is_array($dados)){
-    return[];
+    if ($resultado['status'] < 200 ||  $resultado['status'] >= 300 || !is_array($dados)) {
+        return [];
     }
-    if ($dados !== [] && array_keys($dados) !== range (0, count($dados)-1)){
-        return[]
+    if ($dados !== [] && array_keys($dados) !== range(0, count($dados) - 1)) {
+        return [];
     }
-    return $ dados;
- }
+    return $dados;
+}
 
 //csrf
-if(empty($_session['crsrf_token'])){
-    $_session['csrf_token']=bin2hex(random_bytes(32));
-
+if (empty($_session['crsrf_token'])) {
+    $_session['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf_valido = true;
-if($_server['request_method']=== 'post'){
-    $csrf_valido = hash_equals($_session['csrf_token'],
-     $_post['csrf_token'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'post') {
+    $csrf_valido = hash_equals(
+        $_session['csrf_token'],
+        $_post['csrf_token'] ?? ''
+    );
 }
 
 
 
 
- $mensagem = "";
- $tipo_mensagem = "";
- $produto_edicao =  null;
- $categoria_edicao = null;
+$mensagem = "";
+$tipo_mensagem = "";
+$produto_edicao =  null;
+$categoria_edicao = null;
 
-if($_SERVER['REQUEST_METHOD']=== 'post' && !$csrf_valido){
+if ($_SERVER['REQUEST_METHOD'] === 'post' && !$csrf_valido) {
     $mensagem = "erro: requisicao invalida (token csrf ausente ou expirado).";
     $tipo_mensagem = "erro";
 }
 
 //create categoria
-if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '') === 'criar_categoria'){
-   $nome = trim($_POST['nome'] ?? '');
+if ($_SERVER['REQUEST_METHOD'] === 'post' && $csrf_valido && ($_post['acao'] ?? '') === 'criar_categoria') {
+    $nome = trim($_POST['nome'] ?? '');
 
-   if($nome === ''){
-    $mensagem = "informe o nome da categoria.";
-    $tipo_mensagem = "erro";
-
-   }else{
-    $resultado = supabase_request('post', 'categoria',['nome' => $nome]);
-    if($resultado['status'] === 201){
-        $mensagem = "categoria / "" . $none . "/" cadastrada vom sucesso!"
-        $tipo_mensagem = "sucesso";
-
-    }elseif($resultado['status'] === 401 || $resultado['status'] === 403){
-        $mensagem = "sem permissao para cadastrar categoria(crie uma politica de rls de insert para o papel anon).";
+    if ($nome === '') {
+        $mensagem = "informe o nome da categoria.";
         $tipo_mensagem = "erro";
+    } else {
+        $resultado = supabase_request('post', 'categoria', ['nome' => $nome]);
+        if ($resultado['status'] === 201) {
+            $mensagem = "categoria \"" . $nome . "\" cadastrada com sucesso!";
+            $tipo_mensagem = "sucesso";
+        } elseif ($resultado['status'] === 401 || $resultado['status'] === 403) {
+            $mensagem = "sem permissao para cadastrar categoria(crie uma politica de rls de insert para o papel anon).";
+            $tipo_mensagem = "erro";
+        } else {
+            $mensagem = "erro ao cadastrar categoria (status" . $resultado['status'] . ").";
+            $tipo_mensagem = "erro";
+        }
     }
-    else{
-        $mensagem = "erro ao cadastrar categoria (status" . $resultado['status']. ").";
-        $tipo_mensagem = "erro";
-    }
-   }
 }
 
+$busca = trim($_GET['busca'] ?? '');
+$resultado_categorias = supabase_request('get', 'categoria?select=id,nome&order=nome.asc');
+$categorias = supabase_lista($resultado_categorias);
 
 
 
@@ -101,67 +101,226 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atividade — CRUD com PHP e API do Supabase (chave anon)</title>
     <style>
         /* Reset global: padding/border entram na largura do elemento; remove margens padrão do navegador */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, sans-serif; background: #f0f4f8; color: #1a202c; padding: 2rem; line-height: 1.6; }
-        .container { max-width: 820px; margin: 0 auto; } /* centraliza tudo com largura máxima */
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        .subtitulo { color: #4a5568; margin-bottom: 1.5rem; font-size: 0.95rem; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f0f4f8;
+            color: #1a202c;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        /* centraliza tudo com largura máxima */
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitulo {
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
 
 
         /* .card = cada bloco branco (formulário ou tabela) da página */
-        .card { background: #fff; border-radius: 10px; padding: 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-        .card h2 { font-size: 1rem; margin-bottom: 0.75rem; color: #2d3748; }
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: #2d3748;
+        }
 
 
         /* Layout dos formulários: campos empilhados, com uma linha flexível para inputs + botão */
-        form { display: flex; flex-direction: column; gap: 0.75rem; }
-        .form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
-        .form-group { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; min-width: 120px; }
-        .form-group label { font-size: 0.85rem; color: #4a5568; font-weight: 500; }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            color: #4a5568;
+            font-weight: 500;
+        }
 
 
         /* Estilo compartilhado por texto, número e o <select> de categoria */
-        input[type="text"], input[type="number"], select {
-            padding: 0.5rem 0.75rem; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.95rem; background: #fff;
+        input[type="text"],
+        input[type="number"],
+        select {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: #fff;
         }
-        input:focus, select:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49,130,206,.2); }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #3182ce;
+            box-shadow: 0 0 0 3px rgba(49, 130, 206, .2);
+        }
 
 
         /* Botões: azul = ação principal, vermelho = perigo (excluir), contorno = ação secundária (cancelar) */
-        button, .btn { background: #3182ce; color: #fff; border: none; padding: 0.5rem 0.9rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; align-self: flex-start; text-decoration: none; display: inline-block; }
-        button:hover, .btn:hover { background: #2b6cb0; }
-        .btn-danger { background: #e53e3e; }
-        .btn-danger:hover { background: #c53030; }
-        .btn-outline { background: transparent; color: #3182ce; border: 1px solid #3182ce; }
-        .btn-outline:hover { background: #ebf8ff; }
+        button,
+        .btn {
+            background: #3182ce;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 0.9rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            align-self: flex-start;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        button:hover,
+        .btn:hover {
+            background: #2b6cb0;
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #3182ce;
+            border: 1px solid #3182ce;
+        }
+
+        .btn-outline:hover {
+            background: #ebf8ff;
+        }
 
 
         /* Caixa de alerta no topo — cor muda conforme a classe "sucesso" ou "erro" vinda do PHP */
-        .alerta { padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; font-weight: 500; }
-        .sucesso { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
-        .erro { background: #fed7d7; color: #742a2a; border: 1px solid #feb2b2; }
+        .alerta {
+            padding: 0.85rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            font-weight: 500;
+        }
+
+        .sucesso {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .erro {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
 
 
         /* Barra de busca (desafio extra) na listagem de produtos */
-        .busca-row { display: flex; gap: 0.75rem; margin-bottom: 0.5rem; }
-        .busca-row input[type="text"] { flex: 1; }
+        .busca-row {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .busca-row input[type="text"] {
+            flex: 1;
+        }
 
 
         /* Tabelas de listagem (categorias e produtos) */
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.75rem; }
-        th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e2e8f0; }
-        th { color: #4a5568; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
-        .acoes { display: flex; gap: 0.5rem; } /* agrupa os botões Editar/Excluir lado a lado */
-        .vazio { color: #718096; font-style: italic; font-size: 0.9rem; padding: 0.5rem 0; } /* texto "nenhum item" */
-        .sem-categoria { color: #a0aec0; font-style: italic; } /* texto cinza quando produto não tem categoria */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 0.75rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.6rem 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            color: #4a5568;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .acoes {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* agrupa os botões Editar/Excluir lado a lado */
+        .vazio {
+            color: #718096;
+            font-style: italic;
+            font-size: 0.9rem;
+            padding: 0.5rem 0;
+        }
+
+        /* texto "nenhum item" */
+        .sem-categoria {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        /* texto cinza quando produto não tem categoria */
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Atividade — CRUD com PHP e API do Supabase (chave anon)</h1>
@@ -193,7 +352,7 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                         <label for="nome_categoria">Nome da categoria</label>
                         <!-- value vem preenchido com o dado existente em modo edição, ou vazio em modo cadastro -->
                         <input type="text" id="nome_categoria" name="nome" required
-                               value="<?= htmlspecialchars($categoria_edicao['nome'] ?? '') ?>">
+                            value="<?= htmlspecialchars($categoria_edicao['nome'] ?? '') ?>">
                     </div>
                     <button type="submit"><?= $categoria_edicao ? 'Salvar alterações' : 'Cadastrar' ?></button>
                     <?php if ($categoria_edicao): ?>
@@ -213,7 +372,11 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
             <?php else: ?>
                 <table>
                     <thead>
-                        <tr><th>ID</th><th>Categoria</th><th>Ações</th></tr>
+                        <tr>
+                            <th>ID</th>
+                            <th>Categoria</th>
+                            <th>Ações</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($categorias as $categoria): ?>
@@ -224,8 +387,8 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                                 <td class="acoes">
                                     <a class="btn" href="listar_produtos.php?acao=editar_categoria&id=<?= (int) $categoria['id'] ?>">Editar</a>
                                     <a class="btn btn-danger"
-                                       href="listar_produtos.php?acao=excluir_categoria&id=<?= (int) $categoria['id'] ?>"
-                                       onclick="return confirm('Excluir esta categoria? Só funciona se nenhum produto estiver usando ela.')">Excluir</a>
+                                        href="listar_produtos.php?acao=excluir_categoria&id=<?= (int) $categoria['id'] ?>"
+                                        onclick="return confirm('Excluir esta categoria? Só funciona se nenhum produto estiver usando ela.')">Excluir</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -251,13 +414,13 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                     <div class="form-group">
                         <label for="nome">Nome do produto</label>
                         <input type="text" id="nome" name="nome" required
-                               value="<?= htmlspecialchars($produto_edicao['nome'] ?? '') ?>">
+                            value="<?= htmlspecialchars($produto_edicao['nome'] ?? '') ?>">
                     </div>
                     <div class="form-group" style="max-width:140px;">
                         <label for="preco">Preço (R$)</label>
                         <!-- number_format(valor, 2 casas, ',' decimal, '' sem separador de milhar) formata pro padrão BR -->
                         <input type="text" id="preco" name="preco" placeholder="10,50" required
-                               value="<?= $produto_edicao ? number_format($produto_edicao['preco'], 2, ',', '') : '' ?>">
+                            value="<?= $produto_edicao ? number_format($produto_edicao['preco'], 2, ',', '') : '' ?>">
                     </div>
                     <div class="form-group">
                         <label for="categoria_id_fk">Categoria</label>
@@ -266,10 +429,10 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                             <option value="0">Sem categoria</option>
                             <?php foreach ($categorias as $categoria): ?>
                                 <?php
-                                    // marca a opção atual como selecionada quando estamos editando
-                                    // um produto que já pertence a essa categoria;
-                                    // == (não ===) porque um lado pode vir como string e o outro como int
-                                    $selecionada = ($produto_edicao['categoria_id_fk'] ?? null) == $categoria['id'];
+                                // marca a opção atual como selecionada quando estamos editando
+                                // um produto que já pertence a essa categoria;
+                                // == (não ===) porque um lado pode vir como string e o outro como int
+                                $selecionada = ($produto_edicao['categoria_id_fk'] ?? null) == $categoria['id'];
                                 ?>
                                 <option value="<?= (int) $categoria['id'] ?>" <?= $selecionada ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($categoria['nome']) ?>
@@ -295,7 +458,7 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                  permitindo recarregar a página com o filtro aplicado -->
             <form method="GET" class="busca-row">
                 <input type="text" name="busca" placeholder="Buscar produto pelo nome..."
-                       value="<?= htmlspecialchars($busca) ?>">
+                    value="<?= htmlspecialchars($busca) ?>">
                 <button type="submit">Buscar</button>
             </form>
 
@@ -305,7 +468,13 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
             <?php else: ?>
                 <table>
                     <thead>
-                        <tr><th>ID</th><th>Produto</th><th>Preço</th><th>Categoria</th><th>Ações</th></tr>
+                        <tr>
+                            <th>ID</th>
+                            <th>Produto</th>
+                            <th>Preço</th>
+                            <th>Categoria</th>
+                            <th>Ações</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($produtos as $produto): ?>
@@ -324,8 +493,8 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
                                 <td class="acoes">
                                     <a class="btn" href="listar_produtos.php?acao=editar_produto&id=<?= (int) $produto['id'] ?>">Editar</a>
                                     <a class="btn btn-danger"
-                                       href="listar_produtos.php?acao=excluir_produto&id=<?= (int) $produto['id'] ?>"
-                                       onclick="return confirm('Tem certeza que deseja excluir este produto?')">Excluir</a>
+                                        href="listar_produtos.php?acao=excluir_produto&id=<?= (int) $produto['id'] ?>"
+                                        onclick="return confirm('Tem certeza que deseja excluir este produto?')">Excluir</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -347,5 +516,6 @@ if($_SERVER['REQUEST_METHOD'] === 'post' &&$csrf_valido && ($_post['acao']?? '')
         </div>
     </div>
 </body>
+
 </html>
-    ?>
+?>
